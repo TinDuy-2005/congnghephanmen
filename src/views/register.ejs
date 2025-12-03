@@ -29,12 +29,12 @@
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
-            box-sizing: border-box; /* Quan trọng để không vỡ khung */
+            box-sizing: border-box; 
         }
         button {
             width: 100%;
             padding: 12px;
-            background-color: #28a745; /* Màu xanh lá */
+            background-color: #28a745; 
             color: white;
             border: none;
             border-radius: 5px;
@@ -62,16 +62,19 @@
             <label>Mật khẩu</label>
             <input type="password" id="password" placeholder="Nhập mật khẩu...">
         </div>
-
+        
         <div class="form-group">
-            <label>Bạn là ai?</label>
+            <label>Nhập lại mật khẩu</label>
+            <input type="password" id="confirm-password" placeholder="Nhập lại mật khẩu...">
+        </div>
+        
+        <div class="form-group">
+            <label>Vai trò</label>
             <select id="role">
-                <option value="4">Khách hàng (Customer)</option>
-                <option value="3">Nhân viên giao hàng (Staff)</option>
-                <option value="2">Quản lý (Manager)</option>
-                <option value="1">Admin</option>
+                <option value="4" selected>Customer (Khách hàng)</option> 
             </select>
         </div>
+
 
         <button onclick="handleRegister()">Tạo tài khoản</button>
 
@@ -84,10 +87,18 @@
         async function handleRegister() {
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
-            const role_id = document.getElementById('role').value;
-
-            if(!username || !password) {
+            const confirmPassword = document.getElementById('confirm-password').value; // ✨ LẤY GIÁ TRỊ NHẬP LẠI
+            const role_id = document.getElementById('role').value; // Đã khắc phục lỗi lấy ID
+            
+            // 1. KIỂM TRA ĐẦY ĐỦ THÔNG TIN
+            if(!username || !password || !confirmPassword) {
                 alert("Vui lòng nhập đầy đủ thông tin!");
+                return;
+            }
+            
+            // 2. KIỂM TRA MẬT KHẨU KHỚP NHAU
+            if (password !== confirmPassword) {
+                alert("Mật khẩu và Nhập lại mật khẩu không khớp!");
                 return;
             }
 
@@ -98,7 +109,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         username: username, 
-                        password: password, 
+                        password: password, // Chỉ gửi mật khẩu chính (không gửi mật khẩu xác nhận)
                         role_id: role_id 
                     })
                 });
@@ -107,7 +118,7 @@
 
                 if (res.ok) {
                     alert("Đăng ký thành công! Hãy đăng nhập.");
-                    window.location.href = '/login'; // Chuyển hướng về trang Login
+                    window.location.href = '/login'; 
                 } else {
                     alert("Lỗi: " + (data.message || "Không thể đăng ký"));
                 }

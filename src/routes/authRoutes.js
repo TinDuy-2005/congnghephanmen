@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../config/db'); // Giả định module kết nối DB của bạn
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv')
+dotenv.config()
 
 // 1. ĐĂNG KÝ (Register) - Sử dụng Transaction cho 2 bảng
 router.post('/register', async (req, res) => {
@@ -102,7 +104,7 @@ router.post('/login', async (req, res) => {
         // BƯỚC 3: Tạo JWT Token (Chỉ lấy Role đầu tiên nếu có nhiều Roles)
         const token = jwt.sign(
             { id: user.id, role: user.role_name, username: user.username }, 
-            process.env.JWT_SECRET || 'secret_key_tam_thoi', 
+            process.env.JWT_SECRET , 
             { expiresIn: '1d' } 
         );
 

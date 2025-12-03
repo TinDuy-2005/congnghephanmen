@@ -33,10 +33,18 @@
                     <label>Địa chỉ nhận:</label>
                     <input type="text" id="order-address" class="form-control" placeholder="Ví dụ: 123 Nguyễn Văn Linh...">
                 </div>
+                <div class="mb-3">
+            <label>Số điện thoại người nhận:</label>
+            <input type="text" id="order-phone" class="form-control" placeholder="Ví dụ: 0901234567">
+        </div>
+
+        <div class="mb-3">
+            <label>Tổng tiền (VND):</label>
+            <input type="number" id="order-total" class="form-control" value="0" min="0">
+        </div>
                 <button class="btn btn-success" onclick="createOrder()">Tạo Đơn</button>
             </div>
         </div>
-
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span class="fw-bold">📋 Danh Sách Đơn Hàng</span>
@@ -62,12 +70,38 @@
         </div>
     </div>
 
+    <div class="modal fade" id="editOrderModal" tabindex="-1" aria-labelledby="editOrderModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editOrderModalLabel">Sửa Đơn hàng #<span id="edit-order-id-display"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="edit-order-id">
+                    <div class="mb-3">
+                        <label for="edit-description" class="form-label">Mô tả đơn hàng</label>
+                        <input type="text" class="form-control" id="edit-description">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-address" class="form-label">Địa chỉ nhận</label>
+                        <input type="text" class="form-control" id="edit-address">
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" onclick="updateOrder()">Lưu thay đổi</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('role');
-        const username = localStorage.getItem('username') || 'Bạn'; // Bạn cần lưu thêm username lúc login nếu muốn hiện tên
+        const username = localStorage.getItem('username') || 'Bạn'; 
 
-        // 1. Kiểm tra đăng nhập
+        // 1. Kiểm tra đăng nhập và hiển thị thông tin
         if (!token) window.location.href = '/login';
         
         document.getElementById('user-name').innerText = username;
@@ -78,8 +112,18 @@
             document.getElementById('customer-section').classList.remove('hidden');
         } 
         
-        // 3. Biến lưu danh sách staff (cho Manager dùng)
-        let staffList = [];
+        let staffList = []; // Biến lưu danh sách staff (cho Manager dùng)
+        
+        // ---------------------------------------------
+        // HÀM HELPER: Format Date
+        // ---------------------------------------------
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleString('vi-VN', { 
+                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' 
+            });
+        }
 
         // ---------------------------------------------
         // HÀM: Tải danh sách Staff (Chỉ Manager mới gọi)
@@ -87,18 +131,19 @@
         async function loadStaffs() {
             if (role !== 'Admin' && role !== 'Manager') return;
             try {
-                const res = await fetch('/api/auth/staffs'); // Gọi API vừa thêm
+                const res = await fetch('/api/auth/staffs', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }); 
                 staffList = await res.json();
             } catch (e) { console.error(e); }
         }
 
         // ---------------------------------------------
-        // HÀM: Tải Đơn Hàng
+        // HÀM: Tải Đơn Hàng (Theo Role)
         // ---------------------------------------------
         async function loadOrders() {
             let apiUrl = '';
             
-            // Chọn API phù hợp với Role
             if (role === 'Customer') apiUrl = '/api/orders/my-orders';
             else if (role === 'Staff') apiUrl = '/api/orders/assigned-tasks';
             else apiUrl = '/api/orders/all'; // Manager/Admin
@@ -113,121 +158,257 @@
                 console.error("Lỗi tải đơn hàng:", err);
             }
         }
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    // Format theo kiểu Việt Nam: Giờ:Phút Ngày/Tháng/Năm
-    return date.toLocaleString('vi-VN', { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric' 
-    });
-}
+
         // ---------------------------------------------
         // HÀM: Vẽ bảng (Render HTML)
         // ---------------------------------------------
+        function renderTable(orders) {
+            const tbody = document.getElementById('order-table-body');
+            tbody.innerHTML = '';
 
-function renderTable(orders) {
-    const tbody = document.getElementById('order-table-body');
-    tbody.innerHTML = '';
+            if(orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">Chưa có đơn hàng nào</td></tr>';
+                return;
+            }
 
-    if(orders.length === 0) {
-        // ✨ ĐÃ SỬA: Cập nhật colspan lên 7 vì đã thêm 1 cột 'Ngày tạo'
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">Chưa có đơn hàng nào</td></tr>';
+            orders.forEach(order => {
+                let actionHtml = '<span class="text-muted">...</span>';
+                
+                let shipperDisplay = order.staff_name 
+                    ? `<span class="fw-bold text-primary">${order.staff_name}</span>` 
+                    : (order.staff_id ? `ID: ${order.staff_id}` : '<span class="text-danger">Chưa có</span>');
+
+                let customerDisplay = order.customer_name 
+                    ? `<br><small class="text-muted">Khách: ${order.customer_name}</small>` 
+                    : '';
+
+                // --- LOGIC HIỂN THỊ NÚT BẤM ---
+                if ((role === 'Manager' || role === 'Admin')) {
+                    if (order.status === 'Pending') {
+                        // Nút Phân công (Chỉ Manager/Admin thấy đơn Pending)
+                        let options = staffList.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                        actionHtml = `
+                            <div class="input-group input-group-sm">
+                                <select id="staff-select-${order.id}" class="form-select" style="max-width: 150px;">
+                                    <option value="">Chọn NV...</option>
+                                    ${options}
+                                </select>
+                                <button class="btn btn-primary" onclick="assignStaff(${order.id})">Giao</button>
+                            </div>
+                        `;
+                    }
+                    // Bổ sung các nút SỬA/XÓA cho Customer (hoặc Admin/Manager quản lý)
+                }
+
+                if (role === 'Customer' && order.status === 'Pending') {
+                    // Nút Sửa/Xóa cho Customer (Chỉ khi Pending)
+                     actionHtml = `
+                        <div class="d-flex justify-content-center">
+                            <button class="btn btn-sm btn-info me-2" 
+                                    onclick="showEditModal(${order.id}, '${order.description}', '${order.delivery_address}')">
+                                Sửa
+                            </button>
+                            <button class="btn btn-sm btn-danger" 
+                                    onclick="deleteOrder(${order.id})">
+                                Xóa
+                            </button>
+                        </div>
+                    `;
+                }
+
+
+                if (role === 'Staff') {
+                    // Nút Cập nhật trạng thái cho Staff
+                    if(order.status !== 'Completed' && order.status !== 'Cancelled') {
+                        actionHtml = `
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-warning" onclick="updateStatus(${order.id}, 'In Progress')">🚀 Đi giao</button>
+                                <button class="btn btn-success" onclick="updateStatus(${order.id}, 'Completed')">✅ Xong</button>
+                                <button class="btn btn-danger" onclick="updateStatus(${order.id}, 'Cancelled')">❌ Hủy</button>
+                            </div>
+                        `;
+                    } else {
+                        actionHtml = '<span class="text-success">Đã đóng</span>';
+                    }
+                }
+
+                let badgeColor = 'bg-secondary';
+                if(order.status === 'Assigned') badgeColor = 'bg-info';
+                if(order.status === 'In Progress') badgeColor = 'bg-warning text-dark';
+                if(order.status === 'Completed') badgeColor = 'bg-success';
+                if(order.status === 'Cancelled') badgeColor = 'bg-danger';
+
+                const niceDate = formatDate(order.created_at);
+
+                const row = `
+                    <tr>
+                        <td>#${order.id}</td>
+                        <td>
+                            ${order.description}
+                            ${customerDisplay}
+                        </td>
+                        <td>${order.delivery_address}</td>
+                        <td><small class="text-muted">${niceDate}</small></td> 
+                        <td><span class="badge ${badgeColor}">${order.status}</span></td>
+                        <td>${shipperDisplay}</td>
+                        <td>${actionHtml}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+        
+        // ---------------------------------------------
+        // CHỨC NĂNG: TẠO ĐƠN HÀNG MỚI (Customer)
+        // ---------------------------------------------
+        async function createOrder() {
+    const desc = document.getElementById('order-desc').value;
+    const address = document.getElementById('order-address').value;
+    // ✨ LẤY GIÁ TRỊ TỪ TRƯỜNG MỚI
+    const phone = document.getElementById('order-phone').value;
+    const total = parseFloat(document.getElementById('order-total').value);
+
+    // Bổ sung kiểm tra dữ liệu bắt buộc (ví dụ: Số điện thoại)
+    if (!desc || !address || !phone) {
+        alert('Vui lòng điền đầy đủ Mô tả, Địa chỉ và Số điện thoại.');
         return;
     }
 
-    orders.forEach(order => {
-        let actionHtml = '<span class="text-muted">...</span>';
-        
-        // Hiển thị tên Shipper (nếu có)
-        let shipperDisplay = order.staff_name 
-            ? `<span class="fw-bold text-primary">${order.staff_name}</span>` 
-            : (order.staff_id ? `ID: ${order.staff_id}` : '<span class="text-danger">Chưa có</span>');
+    try {
+        const response = await fetch('/api/orders/create', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token 
+            },
+            body: JSON.stringify({ 
+                description: desc, 
+                address: address, 
+                phone: phone, // ✨ GỬI PHONE QUA BACKEND
+                total: total  // ✨ GỬI TOTAL QUA BACKEND
+            })
+        });
 
-        // Hiển thị tên Khách hàng (Dành cho Manager/Staff xem)
-        let customerDisplay = order.customer_name 
-            ? `<br><small class="text-muted">Khách: ${order.customer_name}</small>` 
-            : '';
+                const data = await response.json();
 
-        // --- LOGIC HIỂN THỊ NÚT BẤM (GIỮ NGUYÊN) ---
-        if ((role === 'Manager' || role === 'Admin') && order.status === 'Pending') {
-            let options = staffList.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            actionHtml = `
-                <div class="input-group input-group-sm">
-                    <select id="staff-select-${order.id}" class="form-select" style="max-width: 150px;">
-                        <option value="">Chọn NV...</option>
-                        ${options}
-                    </select>
-                    <button class="btn btn-primary" onclick="assignStaff(${order.id})">Giao</button>
-                </div>
-            `;
-        }
+                if (response.ok) {
+                    alert('Tạo đơn hàng thành công! ID: ' + data.orderId);
+                    document.getElementById('order-desc').value = '';
+                    document.getElementById('order-address').value = '';
+                    loadOrders(); 
+                } else {
+                    alert('Lỗi tạo đơn hàng: ' + data.message);
+                    console.error(data);
+                }
 
-        if (role === 'Staff') {
-            // Staff chỉ được bấm nút nếu đơn chưa hoàn thành hoặc hủy
-            if(order.status !== 'Completed' && order.status !== 'Cancelled') {
-                actionHtml = `
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-warning" onclick="updateStatus(${order.id}, 'In Progress')">🚀 Đi giao</button>
-                        <button class="btn btn-success" onclick="updateStatus(${order.id}, 'Completed')">✅ Xong</button>
-                        <button class="btn btn-danger" onclick="updateStatus(${order.id}, 'Cancelled')">❌ Hủy</button>
-                    </div>
-                `;
-            } else {
-                actionHtml = '<span class="text-success">Đã đóng</span>';
+            } catch (error) {
+                console.error('Lỗi kết nối API:', error);
+                alert('Không thể kết nối đến máy chủ để tạo đơn hàng.');
             }
         }
-
-        // Tạo màu cho trạng thái
-        let badgeColor = 'bg-secondary';
-        if(order.status === 'Assigned') badgeColor = 'bg-info';
-        if(order.status === 'In Progress') badgeColor = 'bg-warning text-dark';
-        if(order.status === 'Completed') badgeColor = 'bg-success';
-        if(order.status === 'Cancelled') badgeColor = 'bg-danger';
-
-    
-        // SỬ DỤNG HÀM formatDate Ở ĐÂY
-        const niceDate = formatDate(order.created_at);
-
-        const row = `
-            <tr>
-                <td>#${order.id}</td>
-                <td>
-                    ${order.description}
-                    ${customerDisplay}
-                </td>
-                <td>${order.address}</td>
-                <td><small class="text-muted">${niceDate}</small></td> 
-                <td><span class="badge ${badgeColor}">${order.status}</span></td>
-                <td>${shipperDisplay}</td>
-                <td>${actionHtml}</td>
-            </tr>
-        `;
-        tbody.innerHTML += row;
-    });
-}
-function logout() {
-        // 1. Xóa toàn bộ thông tin trong LocalStorage
-        localStorage.removeItem('token');
-        localStorage.removeItem('role');
-        localStorage.removeItem('username');
         
-        // 2. Chuyển hướng về trang đăng nhập
-        window.location.href = '/login';
-    }
-    // Gán các hàm cần thiết cho scope toàn cục để HTML có thể gọi
-    window.logout = logout;
-    window.loadOrders = loadOrders;
-    // window.createOrder = createOrder; // Cần hàm này nếu bạn muốn dùng nút "Tạo Đơn"
-    // window.assignStaff = assignStaff; // Cần hàm này nếu bạn muốn dùng nút "Giao"
-    // window.updateStatus = updateStatus; // Cần hàm này nếu bạn muốn dùng nút "Đi giao/Xong/Hủy"
+        // ---------------------------------------------
+        // CHỨC NĂNG: XÓA ĐƠN HÀNG (Customer)
+        // ---------------------------------------------
+        async function deleteOrder(orderId) {
+            if (!confirm(`Bạn có chắc chắn muốn xóa đơn hàng #${orderId} không?`)) {
+                return;
+            }
 
-    // Khởi tạo trang: Tải danh sách staff và đơn hàng
-    loadStaffs();
-    loadOrders();
+            try {
+                const response = await fetch(`/api/orders/delete/${orderId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    loadOrders(); 
+                } else {
+                    alert(`Lỗi khi xóa đơn: ${result.message || 'Không rõ lỗi.'}`);
+                }
+            } catch (error) {
+                console.error('Lỗi network hoặc server:', error);
+                alert('Không thể kết nối đến máy chủ để xóa đơn hàng.');
+            }
+        }
+        
+        // ---------------------------------------------
+        // CHỨC NĂNG: SỬA ĐƠN HÀNG (Customer)
+        // ---------------------------------------------
+        function showEditModal(id, description, address) {
+            document.getElementById('edit-order-id').value = id;
+            document.getElementById('edit-order-id-display').textContent = id;
+            document.getElementById('edit-description').value = description;
+            document.getElementById('edit-address').value = address;
+            
+            const editModal = new bootstrap.Modal(document.getElementById('editOrderModal'));
+            editModal.show();
+        }
+
+        async function updateOrder() {
+            const id = document.getElementById('edit-order-id').value;
+            const description = document.getElementById('edit-description').value;
+            const address = document.getElementById('edit-address').value;
+            
+            const modalElement = document.getElementById('editOrderModal');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) modal.hide();
+
+            try {
+                const response = await fetch(`/api/orders/update/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ description: description, address: address })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    loadOrders();
+                } else {
+                    alert(`Lỗi khi sửa đơn: ${result.message || 'Không rõ lỗi.'}`);
+                }
+            } catch (error) {
+                console.error('Lỗi network hoặc server:', error);
+                alert('Không thể kết nối đến máy chủ để cập nhật đơn hàng.');
+            }
+        }
+        
+        // ---------------------------------------------
+        // CHỨC NĂNG: ASSIGN STAFF & UPDATE STATUS (Cần hàm ở backend)
+        // ---------------------------------------------
+        // Cần thêm hàm assignStaff(orderId) và updateStatus(orderId, status)
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('username');
+            window.location.href = '/login';
+        }
+
+        // Khởi tạo trang: Tải danh sách staff và đơn hàng
+        loadStaffs();
+        loadOrders();
+        
+        // Gán các hàm vào window scope để HTML có thể gọi
+        window.logout = logout;
+        window.loadOrders = loadOrders;
+        window.createOrder = createOrder;
+        window.deleteOrder = deleteOrder;
+        window.showEditModal = showEditModal;
+        window.updateOrder = updateOrder;
+        // window.assignStaff = assignStaff; // Cần định nghĩa hàm này
+        // window.updateStatus = updateStatus; // Cần định nghĩa hàm này
     </script>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

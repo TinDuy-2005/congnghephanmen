@@ -66,7 +66,7 @@
             const passwordInput = document.getElementById('password').value;
             const errorMsg = document.getElementById('error-msg');
 
-            // 1. Gọi API Login (mà bạn đã viết ở bước trước)
+            // 1. Gọi API Login 
             try {
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
@@ -84,7 +84,7 @@
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('role', data.role);
                     
-                    alert('Đăng nhập thành công! Chuyển hướng...');
+           
                     
                     // 3. Chuyển hướng sang trang Dashboard
                     window.location.href = '/dashboard';
