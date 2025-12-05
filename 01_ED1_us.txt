@@ -1,0 +1,29 @@
+Phân quyền quản lý giao hàng
+
+1. Admin
+   - Đăng nhập vào hệ thống.
+   - Quản lý tài khoản người dùng (xem,khóa Users).
+   - Quản lý vai trò (CRUD Roles).
+   - Quản lý đơn hàng (xem,xóa,sửa Orders).
+   - Quản lý phân công giao hàng (CRUD Deliveries).
+   - Xem báo cáo trạng thái đơn hàng.
+
+2. Manager
+   - Đăng nhập vào hệ thống.
+   - Xem danh sách tất cả đơn hàng.
+   - Quản lý đơn hàng (xóa,sửa Orders).
+   - Phân công nhân viên giao hàng cho đơn hàng.
+   - Xem tiến trình giao hàng.
+   
+3. Staff
+   - Đăng nhập vào hệ thống.
+   - Xem danh sách đơn hàng được phân công.
+   - Cập nhật trạng thái giao hàng: "In Progress", "Completed", "Cancelled".
+   - Xem chi tiết đơn hàng mình đang giao.
+
+4. Customer
+   - Đăng ký tài khoản.
+   - Đăng nhập vào hệ thống.
+   - Tạo đơn hàng mới.
+   - Xem danh sách đơn hàng của mình.
+   - Theo dõi trạng thái đơn hàng: "Pending", "Assigned", "In Progress", "Cancelled".
