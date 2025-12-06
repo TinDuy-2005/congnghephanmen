@@ -11,7 +11,7 @@ Hướng Dẫn Chạy Project
       JWT_SECRET= 231d6966a2286b8a09be9adf
       DB_HOST=localhost
       DB_USER=root
-      DB_PASS=
+      DB_PASS=mât khẩu của db
       DB_NAME=cnpm
 
 7. Chạy server:

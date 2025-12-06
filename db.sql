@@ -26,13 +26,6 @@ CREATE TABLE users (
 );
 ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
 -- 5️⃣ Bảng user_roles (Mối quan hệ N-N)
-INSERT INTO users (username, password, full_name, phone_number, is_active) VALUES
-('admin', '123', 'Administrator', '0900000001', TRUE),
-('manager', '123', 'Manager User', '0900000002', TRUE),
-('staff', '123', 'Staff User', '0900000003', TRUE);
--- chèn dữ liệu mẫu 
-
-
 CREATE TABLE user_roles (
     user_id INT NOT NULL,
     role_id INT NOT NULL,
